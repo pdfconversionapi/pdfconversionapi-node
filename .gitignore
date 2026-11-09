@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.tgz
+.DS_Store
+examples/files/out/
+
+# The local test API's key, if you copy one next to the conformance suite: never commit it.
+/conformance/.local-api.env

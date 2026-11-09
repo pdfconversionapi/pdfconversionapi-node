@@ -1,0 +1,74 @@
+{
+	"name": "pdfconversionapi",
+	"version": "0.1.0",
+	"description": "Official JavaScript and TypeScript client for the PDF Conversion API: convert documents, images and PDFs with one call.",
+	"keywords": [
+		"pdf",
+		"convert",
+		"conversion",
+		"docx-to-pdf",
+		"pdf-to-jpg",
+		"merge-pdf",
+		"api",
+		"sdk"
+	],
+	"homepage": "https://pdfconversionapi.com/docs",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/pdfconversionapi/pdfconversionapi-node.git"
+	},
+	"bugs": {
+		"url": "https://github.com/pdfconversionapi/pdfconversionapi-node/issues"
+	},
+	"license": "MIT",
+	"author": "Zeel Shekhaliya",
+	"type": "module",
+	"sideEffects": false,
+	"engines": {
+		"node": ">=18"
+	},
+	"exports": {
+		".": {
+			"import": {
+				"types": "./dist/index.d.ts",
+				"default": "./dist/index.js"
+			},
+			"require": {
+				"types": "./dist/index.d.cts",
+				"default": "./dist/index.cjs"
+			}
+		},
+		"./package.json": "./package.json"
+	},
+	"main": "./dist/index.cjs",
+	"module": "./dist/index.js",
+	"types": "./dist/index.d.cts",
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md",
+		"LICENSE"
+	],
+	"scripts": {
+		"build": "tsup",
+		"typecheck": "tsc --noEmit && tsc --noEmit -p tests/tsconfig.json",
+		"lint": "biome check .",
+		"format": "biome check --write .",
+		"test": "node --test tests/unit.test.mjs tests/conformance.test.mjs tests/package.test.cjs",
+		"test:unit": "node --test tests/unit.test.mjs",
+		"test:conformance": "node --test tests/conformance.test.mjs",
+		"test:live": "node --test tests/live.test.mjs",
+		"test:runtimes": "node scripts/runtime-conformance.mjs && bun scripts/runtime-conformance.mjs && deno run --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys scripts/runtime-conformance.mjs",
+		"check:package": "attw --pack . && npm pack --dry-run",
+		"prepublishOnly": "npm run build && npm run typecheck && npm run lint && npm test",
+		"examples": "node scripts/run-examples.mjs",
+		"test:workerd": "node scripts/workerd-smoke.mjs"
+	},
+	"devDependencies": {
+		"@arethetypeswrong/cli": "0.18.5",
+		"@biomejs/biome": "2.6.6",
+		"@types/node": "18.19.130",
+		"tsup": "9.0.0",
+		"typescript": "5.9.3"
+	}
+}

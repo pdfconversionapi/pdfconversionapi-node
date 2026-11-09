@@ -1,0 +1,89 @@
+# Tests on every push and pull request.
+#
+# The shared conformance suite (cases.json, mock-server.mjs, fixtures/) is the copy in
+# conformance/ (from https://github.com/pdfconversionapi/sdk-conformance); the jobs that run it
+# fail without it.
+#
+# The build tools need Node.js 22.18 or later, so every job builds on Node.js 24 and then runs the
+# tests on the Node.js version under test.
+
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  PDFCONVERSIONAPI_CONFORMANCE_DIR: ${{ github.workspace }}/conformance
+
+jobs:
+  test:
+    name: Node.js ${{ matrix.node }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [18, 20, 22, 24]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check that the conformance suite is in the repository
+        run: |
+          test -f conformance/cases.json && test -f conformance/mock-server.mjs || {
+            echo "::error::conformance/ is missing: this repository keeps a copy of the shared test suite (https://github.com/pdfconversionapi/sdk-conformance) there"
+            exit 1
+          }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: node --version
+      - run: npm test
+
+  checks:
+    name: Types, lint and package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run check:package
+
+  runtimes:
+    name: Bun, Deno and workerd
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check that the conformance suite is in the repository
+        run: |
+          test -f conformance/cases.json && test -f conformance/mock-server.mjs || {
+            echo "::error::conformance/ is missing: this repository keeps a copy of the shared test suite (https://github.com/pdfconversionapi/sdk-conformance) there"
+            exit 1
+          }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - uses: oven-sh/setup-bun@v2
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: npm ci
+      - run: npm run build
+      - run: bun scripts/runtime-conformance.mjs
+      - run: deno run --allow-net --allow-read --allow-write --allow-env --allow-run --allow-sys scripts/runtime-conformance.mjs
+      - run: npm install --no-save miniflare@4.20260730.0
+      - run: node scripts/workerd-smoke.mjs

@@ -1,0 +1,34 @@
+{
+	"$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+	"files": {
+		"includes": ["**", "!dist", "!node_modules", "!**/*.tgz", "!examples/files/out", "!conformance"]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab",
+		"lineWidth": 120
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"preset": "recommended"
+		}
+	},
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["tests/**", "scripts/**", "examples/**"],
+			"linter": {
+				"rules": {
+					"performance": {
+						"noDynamicNamespaceImportAccess": "off"
+					}
+				}
+			}
+		}
+	]
+}

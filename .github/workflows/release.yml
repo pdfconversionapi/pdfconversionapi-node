@@ -1,0 +1,95 @@
+# Publishes the package to npm when a version tag (v0.1.0, ...) is pushed. The tag must match the
+# version in package.json.
+#
+# 1. test: checks the tag, builds, runs the type check, lint, unit and conformance tests (with the
+#    suite bundled in conformance/), then the live tests against the production API when the
+#    PDFCONVERSIONAPI_KEY secret is set, and checks the package.
+# 2. publish: runs in the "npm" environment (it waits for a reviewer's approval when the
+#    environment requires one). With the NPM_TOKEN secret set (the first release, before the
+#    package exists on npm), it publishes with that token and --provenance. Without it, it uses
+#    npm trusted publishing, which needs npm 11.5.1 or later and adds provenance itself. Both need
+#    the id-token permission.
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+env:
+  PDFCONVERSIONAPI_CONFORMANCE_DIR: ${{ github.workspace }}/conformance
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Check that the tag matches package.json
+        run: |
+          version="$(node -p 'require("./package.json").version')"
+          if [ "v${version}" != "${GITHUB_REF_NAME}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match package.json version ${version}" >&2
+            exit 1
+          fi
+      - name: Check that the conformance suite is in the repository
+        run: |
+          test -f conformance/cases.json && test -f conformance/mock-server.mjs || {
+            echo "::error::conformance/ is missing: this repository keeps a copy of the shared test suite (https://github.com/pdfconversionapi/sdk-conformance) there"
+            exit 1
+          }
+      - run: npm ci
+      - run: npm run build
+      - run: npm run typecheck
+      - run: npm run lint
+      - name: Unit and conformance tests
+        run: npm test
+      - name: Live tests against the production API
+        env:
+          PDFCONVERSIONAPI_KEY: ${{ secrets.PDFCONVERSIONAPI_KEY }}
+          PDFCONVERSIONAPI_LIVE_BASE_URL: https://api.pdfconversionapi.com
+        run: |
+          if [ -z "$PDFCONVERSIONAPI_KEY" ]; then
+            echo "::warning::The PDFCONVERSIONAPI_KEY secret is not set: live tests skipped."
+            exit 0
+          fi
+          npm run test:live
+      - run: npm run check:package
+
+  publish:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write # trusted publishing and provenance
+    env:
+      HAS_NPM_TOKEN: ${{ secrets.NPM_TOKEN != '' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: Install npm 11.5.1 or later (trusted publishing needs it)
+        run: |
+          npm install --global "npm@^11.5.1"
+          npm --version
+      - run: npm ci
+      # npm publish runs prepublishOnly first: build, type check, lint, unit and conformance tests.
+      - name: Publish with the NPM_TOKEN secret (first release)
+        if: env.HAS_NPM_TOKEN == 'true'
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish --provenance --access public
+      - name: Publish with trusted publishing
+        if: env.HAS_NPM_TOKEN != 'true'
+        run: npm publish --access public
